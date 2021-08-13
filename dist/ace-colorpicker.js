@@ -1,7 +1,7 @@
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
 	typeof define === 'function' && define.amd ? define(factory) :
-	(global['codemirror-colorpicker'] = factory());
+	(global['ace-colorpicker'] = factory());
 }(this, (function () { 'use strict';
 
 /**
@@ -7291,7 +7291,7 @@ var BaseColorPicker = function (_UIElement) {
     }, {
         key: 'checkColorPickerClass',
         value: function checkColorPickerClass(el) {
-            var hasColorView = new Dom(el).closest('codemirror-colorview');
+            var hasColorView = new Dom(el).closest('ace-colorview');
             var hasColorPicker = new Dom(el).closest('codemirror-colorpicker');
             var hasCodeMirror = new Dom(el).closest('CodeMirror');
             var IsInHtml = el.nodeName == 'HTML';
@@ -9504,55 +9504,48 @@ var ColorPicker = {
     MiniVerticalColorPicker: MiniColorPicker$2
 };
 
-var colorpicker_class = 'codemirror-colorview';
-var colorpicker_background_class = 'codemirror-colorview-background';
+var colorpicker_class = 'ace-colorview';
+var colorpicker_background_class = 'ace-colorview-background';
 // Excluded tokens do not show color views..
 var excluded_token = ['comment', 'builtin', 'qualifier'];
 
-function onChange(cm, evt) {
+function onChange(ace, editor, colorview, evt) {
     if (evt.origin == 'setValue') {
         // if content is changed by setValue method, it initialize markers
         // cm.state.colorpicker.close_color_picker();
-        cm.state.colorpicker.init_color_update();
-        cm.state.colorpicker.style_color_update();
+        colorview.init_color_update();
+        colorview.style_color_update();
     } else {
-        cm.state.colorpicker.style_color_update(cm.getCursor().line);
+        colorview.style_color_update(colorview.createLineHandle());
     }
 }
 
-function onUpdate(cm, evt) {
-    if (!cm.state.colorpicker.isUpdate) {
-        cm.state.colorpicker.isUpdate = true;
-        cm.state.colorpicker.close_color_picker();
-        cm.state.colorpicker.init_color_update();
-        cm.state.colorpicker.style_color_update();
+function onUpdate(ace, editor, colorview, evt) {
+    if (!colorview.isUpdate) {
+        colorview.isUpdate = true;
+        colorview.close_color_picker();
+        colorview.init_color_update();
+        colorview.style_color_update();
     }
 }
 
-function onRefresh(cm, evt) {
-    onChange(cm, { origin: 'setValue' });
+function onMousedown(ace, editor, colorview, evt) {
+    // if (cm.state.colorpicker.is_edit_mode())
+    // {
+    colorview.check_mousedown(evt);
+    // }
 }
 
-function onKeyup(cm, evt) {
-    cm.state.colorpicker.keyup(evt);
+function onPaste(ace, editor, colorview, evt) {
+    onChange(ace, editor, colorview, { origin: 'setValue' });
 }
 
-function onMousedown(cm, evt) {
-    if (cm.state.colorpicker.is_edit_mode()) {
-        cm.state.colorpicker.check_mousedown(evt);
-    }
+function onScroll(ace, editor, colorview) {
+    colorview.close_color_picker();
 }
 
-function onPaste(cm, evt) {
-    onChange(cm, { origin: 'setValue' });
-}
-
-function onScroll(cm) {
-    cm.state.colorpicker.close_color_picker();
-}
-
-function onBlur(cm) {
-    cm.state.colorpicker.hide_delay_color_picker(cm.state.colorpicker.opt.hideDelay || 1000);
+function onBlur(ace, editor, colorview) {
+    colorview.hide_delay_color_picker(colorview.opt.hideDelay || 1000);
 }
 
 function debounce(callback, delay) {
@@ -9580,80 +9573,86 @@ function has_class(el, cls) {
 }
 
 var ColorView = function () {
-    function ColorView(cm, opt) {
+    function ColorView(ace, editor) {
+        var opt = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
         classCallCheck(this, ColorView);
 
-        if (typeof opt == 'boolean') {
-            opt = { mode: 'edit' };
-        } else {
-            opt = Object.assign({ mode: 'edit' }, opt || {});
-        }
-
         this.opt = opt;
-        this.cm = cm;
+        this.ace = ace;
+        this.editor = editor;
         this.markers = {};
 
         // set excluded token 
         this.excluded_token = this.opt.excluded_token || excluded_token;
 
-        if (this.opt.colorpicker) {
-            this.colorpicker = this.opt.colorpicker(this.opt);
-        } else {
-            this.colorpicker = ColorPicker.create(this.opt);
-        }
-
+        this.colorpicker = ColorPicker.create(this.opt);
+        this.lineHandles = {};
         this.init_event();
     }
 
     createClass(ColorView, [{
         key: 'init_event',
         value: function init_event() {
+            var _this = this;
 
-            this.cm.on('mousedown', onMousedown);
-            this.cm.on('keyup', onKeyup);
-            this.cm.on('change', onChange);
-            this.cm.on('update', onUpdate);
-            this.cm.on('refresh', onRefresh);
-            this.cm.on('blur', onBlur);
+            // this.cm.on('mousedown', onMousedown);
+            // this.cm.on('keyup', onKeyup);
+
+            this.onChange = function (evt) {
+                onChange(_this.ace, _this.editor, _this, evt);
+            };
+
+            this.onUpdate = function (evt) {
+                onUpdate(_this.ace, _this.editor, _this, evt);
+            };
+
+            this.editor.session.on('change', this.onChange);
+            this.editor.session.on('tokenizerUpdate', this.onUpdate);
+
+            this.onBlur = function (evt) {
+                onBlur(_this.ace, _this.editor, _this, evt);
+            };
+            // this.cm.on('refresh', onRefresh);
+            this.editor.on('blur', this.onBlur);
 
             // create paste callback
-            this.onPasteCallback = function (cm, callback) {
-                return function (evt) {
-                    callback.call(this, cm, evt);
-                };
-            }(this.cm, onPaste);
+            this.onPaste = function (evt) {
+                onPaste(_this.ace, _this.editor, _this, evt);
+            };
 
-            this.onScrollEvent = debounce(onScroll, 50);
+            this.onScrollEvent = debounce(function () {
+                onScroll(_this.ace, _this.editor);
+            }, 50);
 
-            this.cm.getWrapperElement().addEventListener('paste', this.onPasteCallback);
+            this.editor.on('paste', this.onPaste);
 
-            if (this.is_edit_mode()) {
-                this.cm.on('scroll', this.onScrollEvent);
-            }
+            this.editor.session.on('changeScrollTop', this.onScrollEvent);
         }
-    }, {
-        key: 'is_edit_mode',
-        value: function is_edit_mode() {
-            return this.opt.mode == 'edit';
-        }
-    }, {
-        key: 'is_view_mode',
-        value: function is_view_mode() {
-            return this.opt.mode == 'view';
-        }
+
+        // is_edit_mode() {
+        //     return this.opt.mode == 'edit';
+        // }
+
+        // is_view_mode() {
+        //     return this.opt.mode == 'view';
+        // }
+
     }, {
         key: 'destroy',
         value: function destroy() {
-            this.cm.off('mousedown', onMousedown);
-            this.cm.off('keyup', onKeyup);
-            this.cm.off('change', onChange);
-            this.cm.off('blur', onBlur);
+            // this.cm.off('mousedown', onMousedown);
+            // this.cm.off('keyup', onKeyup);
+            this.editor.session.off('change', this.onChange);
+            this.editor.session.off('tokenizerUpdate', this.onUpdate);
+            this.editor.off('blur', this.onBlur);
+            this.editor.off('paste', this.onPaste);
 
-            this.cm.getWrapperElement().removeEventListener('paste', this.onPasteCallback);
+            // this.cm.getWrapperElement().removeEventListener('paste', this.onPasteCallback);
 
-            if (this.is_edit_mode()) {
-                this.cm.off('scroll', this.onScrollEvent);
-            }
+            // if (this.is_edit_mode())
+            // {
+            this.editor.session.off('changeScrollTop', this.onScrollEvent);
+            // }
         }
     }, {
         key: 'hasClass',
@@ -9705,24 +9704,29 @@ var ColorView = function () {
     }, {
         key: 'open_color_picker',
         value: function open_color_picker(el) {
-            var _this = this;
+            var _this2 = this;
 
             var lineNo = el.lineNo;
             var ch = el.ch;
             var nameColor = el.nameColor;
             var color = el.color;
+            var Range = this.ace.Range;
+
 
             if (this.colorpicker) {
                 var prevColor = color;
-                var pos = this.cm.charCoords({ line: lineNo, ch: ch });
+                var pos = el.getBoundingClientRect();
+                // console.log(this.editor.session.documentToScreenPosition(lineNo, ch));
+                // var pos = this.cm.charCoords({line : lineNo, ch : ch });
+                // console.log(pos, el.style.left, el.style.top);
                 this.colorpicker.show({
                     left: pos.left,
-                    top: pos.bottom,
+                    top: pos.bottom + 50,
                     isShortCut: el.isShortCut || false,
                     hideDelay: this.opt.hideDelay || 2000
                 }, nameColor || color, function (newColor) {
-                    _this.cm.replaceRange(newColor, { line: lineNo, ch: ch }, { line: lineNo, ch: ch + prevColor.length }, '*colorpicker');
-                    _this.cm.focus();
+                    _this2.editor.session.replace(new Range(lineNo, ch, lineNo, ch + prevColor.length), newColor);
+                    _this2.editor.focus();
                     prevColor = newColor;
                 });
             }
@@ -9767,9 +9771,9 @@ var ColorView = function () {
         key: 'style_color_update',
         value: function style_color_update(lineHandle) {
             if (lineHandle) {
-                this.match(lineHandle);
+                this.match(lineHandle.lineNo);
             } else {
-                var max = this.cm.lineCount();
+                var max = this.editor.session.getLength();
 
                 for (var lineNo = 0; lineNo < max; lineNo++) {
                     this.match(lineNo);
@@ -9798,7 +9802,7 @@ var ColorView = function () {
     }, {
         key: 'submatch',
         value: function submatch(lineNo, lineHandle) {
-            var _this2 = this;
+            var _this3 = this;
 
             this.empty_marker(lineNo, lineHandle);
 
@@ -9806,33 +9810,47 @@ var ColorView = function () {
             var obj = { next: 0 };
 
             result.forEach(function (item) {
-                _this2.render(obj, lineNo, lineHandle, item.color, item.nameColor);
+                _this3.render(obj, lineNo, lineHandle, item.color, item.nameColor);
             });
+        }
+    }, {
+        key: 'createLineHandle',
+        value: function createLineHandle(lineNo) {
+
+            if (!lineNo) {
+                lineNo = this.editor.selection.cursor.row;
+            }
+
+            if (!this.lineHandles[lineNo]) {
+                this.lineHandles[lineNo] = { lineNo: lineNo, markedSpans: [] };
+            }
+
+            this.lineHandles[lineNo].text = this.editor.session.getLine(lineNo);
+
+            return this.lineHandles[lineNo];
         }
     }, {
         key: 'match',
         value: function match(lineNo) {
-            var lineHandle = this.cm.getLineHandle(lineNo);
-            var self = this;
-            this.cm.operation(function () {
-                self.submatch(lineNo, lineHandle);
-            });
+            var lineHandle = this.createLineHandle(lineNo);
+            this.submatch(lineNo, lineHandle);
         }
     }, {
         key: 'make_element',
         value: function make_element() {
+            var _this4 = this;
+
             var el = document.createElement('div');
 
             el.className = colorpicker_class;
-
-            if (this.is_edit_mode()) {
-                el.title = "open color picker";
-            } else {
-                el.title = "";
-            }
+            el.title = "open color picker";
 
             el.back_element = this.make_background_element();
             el.appendChild(el.back_element);
+
+            el.addEventListener('mousedown', function (evt) {
+                onMousedown(_this4.ace, _this4.editor, _this4, evt);
+            });
 
             return el;
         }
@@ -9889,19 +9907,51 @@ var ColorView = function () {
             el.back_element.style.backgroundColor = color;
         }
     }, {
+        key: 'update_marker',
+        value: function update_marker(line, ch, el) {
+            var Range = this.ace.Range;
+
+            return {
+                update: function update(html, markerLayer, session, config) {
+
+                    var screenPosition = session.documentToScreenPosition(line, ch);
+
+                    var top = markerLayer.$getTop(screenPosition.row, config);
+                    var left = markerLayer.$padding + screenPosition.column * config.characterWidth;
+                    var height = config.lineHeight;
+
+                    el.style.left = left + 0.5 + 'px';
+                    el.style.top = top + height / 2 + 'px';
+                    markerLayer.element.appendChild(el);
+                    markerLayer.i = -1;
+                }
+            };
+        }
+    }, {
         key: 'set_mark',
         value: function set_mark(line, ch, el) {
-            this.cm.setBookmark({ line: line, ch: ch }, { widget: el, handleMouseEvents: true });
+            // const { Range } = this.ace;
+            this.editor.session.addDynamicMarker(this.update_marker(line, ch, el), true);
+
+            // 
+
+            // this.cm.setBookmark({ line : line, ch : ch}, { widget : el, handleMouseEvents : true} );
         }
     }, {
         key: 'is_excluded_token',
         value: function is_excluded_token(line, ch) {
-            var token = this.cm.getTokenAt({ line: line, ch: ch }, true);
-            var type = token.type;
-            var state = token.state.state;
+            var token = this.editor.session.getTokenAt(line, ch);
 
-            if (type == null && state == 'block') return true;
-            if (type == null && state == 'top') return true;
+            console.log(token);
+            var type = token.type;
+            // var state = token.state.state;
+
+            if (type === 'variable') return true;
+
+            if (type.includes('color')) return false;
+
+            // if (type == null && state == 'block')  return true;
+            // if (type == null && state == 'top')  return true;
             // if (type == null && state == 'prop')  return true;
 
             var count = 0;
@@ -9918,6 +9968,8 @@ var ColorView = function () {
         key: 'render',
         value: function render(cursor, lineNo, lineHandle, color, nameColor) {
             var start = lineHandle.text.indexOf(color, cursor.next);
+
+            console.log(start, color, nameColor);
 
             if (this.is_excluded_token(lineNo, start) === true) {
                 // excluded token do not show.
@@ -9943,41 +9995,16 @@ var ColorView = function () {
     return ColorView;
 }();
 
-try {
-    var CodeMirror = require('codemirror');
-} catch (e) {}
+function LOAD_ACE_COLORPICKER(ace, editor, opt) {
 
-var CHECK_CODEMIRROR_OBJECT = function CHECK_CODEMIRROR_OBJECT() {
-    return CodeMirror || window.CodeMirror;
-};
-function LOAD_CODEMIRROR_COLORPICKER() {
-    var CODEMIRROR_OBJECT = CHECK_CODEMIRROR_OBJECT();
-
-    if (CODEMIRROR_OBJECT) {
-        CODEMIRROR_OBJECT.defineOption("colorpicker", false, function (cm, val, old) {
-            if (old && old != CODEMIRROR_OBJECT.Init) {
-
-                if (cm.state.colorpicker) {
-                    cm.state.colorpicker.destroy();
-                    cm.state.colorpicker = null;
-                }
-                // remove event listener
-            }
-
-            if (val) {
-                cm.state.colorpicker = new ColorView(cm, val);
-            }
-        });
-    }
+    return new ColorView(ace, editor, opt);
 }
 
-LOAD_CODEMIRROR_COLORPICKER();
-
-var CodeMirrorExtension = {
-    load: LOAD_CODEMIRROR_COLORPICKER
+var AceExtension = {
+    load: LOAD_ACE_COLORPICKER
 };
 
-var index = _extends({}, Util, ColorPicker, CodeMirrorExtension);
+var index = _extends({}, Util, ColorPicker, AceExtension);
 
 return index;
 

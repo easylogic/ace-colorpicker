@@ -14,11 +14,11 @@ export default [{
     file: 'dist/' + packageJSON.name + '.min.js',
     format: 'iife',
     globals: {
-      "codemirror" : "window.CodeMirror"
+      // "codemirror" : "window.CodeMirror"
     },
-    external: ['codemirror']
+    // external: ['codemirror']
   },
-  name: 'CodeMirrorColorPicker',  
+  name: 'AceColorPicker',  
   plugins : [
     peerDepsExternal(),
     glslify({ basedir: 'src/util/glsl/source' }),
@@ -41,11 +41,11 @@ export default [{
     file: 'dist/' + packageJSON.name + '.js',
     format: 'umd',
     globals: {
-      "codemirror" : "CodeMirror"
+      // "codemirror" : "CodeMirror"
     },
-    external: ['codemirror']
+    // external: ['codemirror']
   },
-  name: 'codemirror-colorpicker',
+  name: 'ace-colorpicker',
   plugins : [
     postcss({
       extract: 'dist/' + packageJSON.name + '.css',

@@ -361,7 +361,7 @@ export default class BaseColorPicker extends UIElement {
 
 
     checkColorPickerClass(el) {
-        var hasColorView = new Dom(el).closest('codemirror-colorview');
+        var hasColorView = new Dom(el).closest('ace-colorview');
         var hasColorPicker = new Dom(el).closest('codemirror-colorpicker');
         var hasCodeMirror = new Dom(el).closest('CodeMirror');
         var IsInHtml = el.nodeName == 'HTML';

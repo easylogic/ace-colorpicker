@@ -14,11 +14,11 @@ export default {
     file: 'addon/' + packageJSON.name + '.js',
     format: 'iife',
     globals: {
-      "codemirror" : "window.CodeMirror"
+      // "codemirror" : "window.CodeMirror"
     },
-    external: ['codemirror']
+    // external: ['codemirror']
   },
-  name: 'CodeMirrorColorPicker',  
+  name: 'AceColorPicker',  
   plugins : [
     peerDepsExternal(),
     serve(),
