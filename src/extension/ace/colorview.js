@@ -1,7 +1,9 @@
 import Color from '../../util/Color'
 import ColorPicker from '../../colorpicker/index';
+import ColorNames from '../../util/ColorNames';
+import { brightness } from '../../util/functions/fromRGB';
 
-const colorpicker_class = 'ace-colorview'; 
+const colorpicker_class = 'ace-colorview';
 const colorpicker_background_class = 'ace-colorview-background';
 // Excluded tokens do not show color views..
 let excluded_token = ['comment', 'builtin', 'qualifier'];
@@ -28,7 +30,7 @@ function onUpdate(ace, editor, colorview, evt) {
 }
 
 function onRefresh(ace, editor, colorview, evt) {
-    onChange(ace, editor, colorview, { origin : 'setValue'});
+    onChange(ace, editor, colorview, { origin: 'setValue' });
 }
 
 function onKeyup(cm, evt) {
@@ -38,23 +40,23 @@ function onKeyup(cm, evt) {
 function onMousedown(ace, editor, colorview, evt) {
     // if (cm.state.colorpicker.is_edit_mode())
     // {
-        colorview.check_mousedown(evt);
+    colorview.check_mousedown(evt);
     // }
 }
 
-function onPaste (ace, editor, colorview, evt) {
-    onChange(ace, editor, colorview, { origin : 'setValue'});
+function onPaste(ace, editor, colorview, evt) {
+    onChange(ace, editor, colorview, { origin: 'setValue' });
 }
 
-function onScroll (ace, editor, colorview) {
+function onScroll(ace, editor, colorview) {
     colorview.close_color_picker();
 }
 
-function onBlur (ace, editor, colorview) {
+function onBlur(ace, editor, colorview) {
     colorview.hide_delay_color_picker(colorview.opt.hideDelay || 1000);
 }
 
-function debounce (callback, delay) {
+function debounce(callback, delay) {
 
     var t = undefined;
 
@@ -80,14 +82,14 @@ function has_class(el, cls) {
 
 
 export default class ColorView {
-    constructor (ace, editor, opt = {}) {
+    constructor(ace, editor, opt = {}) {
         var self = this;
 
         this.opt = opt;
         this.ace = ace;
         this.editor = editor;
         this.markers = {};
-        
+
         // set excluded token 
         this.excluded_token = this.opt.excluded_token || excluded_token;
 
@@ -103,37 +105,86 @@ export default class ColorView {
         // this.cm.on('mousedown', onMousedown);
         // this.cm.on('keyup', onKeyup);
 
-        this.onChange = (evt) => {
-            onChange(this.ace, this.editor, this, evt);
+        // this.onChange = (evt) => {
+        //     onChange(this.ace, this.editor, this, evt);
+        // }
+
+        // this.onUpdate = (evt) => {
+        //     onUpdate(this.ace, this.editor, this, evt);
+        // }        
+
+
+        // this.editor.session.on('change', this.onChange);
+        // this.editor.session.on('tokenizerUpdate', this.onUpdate);
+
+
+        // this.onBlur = (evt) => {
+        //     onBlur(this.ace, this.editor, this, evt);
+        // }                        
+        // // this.cm.on('refresh', onRefresh);
+        // this.editor.on('blur', this.onBlur); 
+
+        // // create paste callback
+        // this.onPaste = (evt) => {
+        //     onPaste(this.ace, this.editor, this, evt);
+        // }
+
+        // this.onScrollEvent = debounce(() => {
+        //     onScroll(this.ace, this.editor);
+        // }, 50)
+
+        // this.editor.on('paste', this.onPaste);
+
+        // this.editor.session.on('changeScrollTop', this.onScrollEvent);
+
+        // this.editor.session.setMode("ace/mode/css");
+
+        let rules = editor.session.$mode.$highlightRules.getRules();
+        for (let stateName in rules) {
+            if (Object.prototype.hasOwnProperty.call(rules, stateName)) {
+                rules[stateName].unshift({
+                    token: (value) => {
+
+                        if (value.indexOf('#') > -1 || value.indexOf('rgb') > -1 || value.indexOf('hsl') > -1) {
+                            return "color";
+                        }
+
+                        if (ColorNames.getColorByName(value)) {
+                            return "color";
+                        }
+
+                        return 'text'
+                    },
+                    regex: '#(?:[\\da-f]{8})|#(?:[\\da-f]{3}){1,2}|rgb\\((?:\\s*\\d{1,3},\\s*){2}\\d{1,3}\\s*\\)|rgba\\((?:\\s*\\d{1,3},\\s*){3}\\d*\\.?\\d+\\s*\\)|hsl\\(\\s*\\d{1,3}(?:,\\s*\\d{1,3}%){2}\\s*\\)|hsla\\(\\s*\\d{1,3}(?:,\\s*\\d{1,3}%){2},\\s*\\d*\\.?\\d+\\s*\\)'
+                });
+            }
         }
+        // force recreation of tokenizer
+        editor.session.$mode.$tokenizer = null;
+        editor.session.bgTokenizer.setTokenizer(editor.session.$mode.getTokenizer());
+        // force re-highlight whole document
+        editor.session.bgTokenizer.start(0);
 
-        this.onUpdate = (evt) => {
-            onUpdate(this.ace, this.editor, this, evt);
-        }        
+        // each editor render update, update all displayed colors
+        //
+        this.editor.renderer.on('afterRender', function () {
 
+            // each time renderer updates, get all elements with ace_color class
+            var colors = document.getElementsByClassName("ace_color");
 
-        this.editor.session.on('change', this.onChange);
-        this.editor.session.on('tokenizerUpdate', this.onUpdate);
+            // iterate through them and set their background color and font color accordingly
+            for (var i = 0; i < colors.length; i++) {
+                const colorObj = Color.parse(colors[i].innerHTML);
 
+                if (brightness(colorObj.r, colorObj.g, colorObj.b) > 127) {
+                    colors[i].setAttribute('style', 'background-color:' + colors[i].innerHTML + ';color:#000');
+                }
+                else {
+                    colors[i].setAttribute('style', 'background-color:' + colors[i].innerHTML + ';color:#fff');
+                }
+            }
+        });
 
-        this.onBlur = (evt) => {
-            onBlur(this.ace, this.editor, this, evt);
-        }                        
-        // this.cm.on('refresh', onRefresh);
-        this.editor.on('blur', this.onBlur); 
-
-        // create paste callback
-        this.onPaste = (evt) => {
-            onPaste(this.ace, this.editor, this, evt);
-        }
-
-        this.onScrollEvent = debounce(() => {
-            onScroll(this.ace, this.editor);
-        }, 50)
-
-        this.editor.on('paste', this.onPaste);
-
-        this.editor.session.on('changeScrollTop', this.onScrollEvent);
 
     }
 
@@ -157,13 +208,12 @@ export default class ColorView {
 
         // if (this.is_edit_mode())
         // {
-            this.editor.session.off('changeScrollTop', this.onScrollEvent);
+        this.editor.session.off('changeScrollTop', this.onScrollEvent);
         // }
     }
 
     hasClass(el, className) {
-        if (!el.className)
-        {
+        if (!el.className) {
             return false;
         } else {
             var newClass = ' ' + el.className + ' ';
@@ -172,8 +222,7 @@ export default class ColorView {
     }
 
     check_mousedown(evt) {
-        if (this.hasClass(evt.target, colorpicker_background_class) )
-        {
+        if (this.hasClass(evt.target, colorpicker_background_class)) {
             this.open_color_picker(evt.target.parentNode);
         } else {
             this.close_color_picker();
@@ -184,15 +233,15 @@ export default class ColorView {
         var cursor = this.cm.getCursor();
         var self = this;
         var colorMarker = {
-            lineNo : cursor.line,
-            ch : cursor.ch,
+            lineNo: cursor.line,
+            ch: cursor.ch,
             color: defalutColor || '#FFFFFF',
-            isShortCut : true
+            isShortCut: true
         };
 
-        Object.keys(this.markers).forEach(function(key) {
+        Object.keys(this.markers).forEach(function (key) {
             var searchKey = "#" + key;
-            if (searchKey.indexOf( "#" + colorMarker.lineNo + ":") > -1) {
+            if (searchKey.indexOf("#" + colorMarker.lineNo + ":") > -1) {
                 var marker = self.markers[key];
 
                 if (marker.ch <= colorMarker.ch && colorMarker.ch <= marker.ch + marker.color.length) {
@@ -213,26 +262,23 @@ export default class ColorView {
         var ch = el.ch;
         var nameColor = el.nameColor;
         var color = el.color;
-        const {Range} = this.ace; 
+        const { Range } = this.ace;
 
 
         if (this.colorpicker) {
             var prevColor = color;
             const pos = el.getBoundingClientRect();
-            // console.log(this.editor.session.documentToScreenPosition(lineNo, ch));
-            // var pos = this.cm.charCoords({line : lineNo, ch : ch });
-            // console.log(pos, el.style.left, el.style.top);
             this.colorpicker.show({
-                left : pos.left,
-                top : pos.bottom + 50,
-                isShortCut : el.isShortCut || false,
-                hideDelay : this.opt.hideDelay || 2000
+                left: pos.left,
+                top: pos.bottom + 50,
+                isShortCut: el.isShortCut || false,
+                hideDelay: this.opt.hideDelay || 2000
             }, nameColor || color, (newColor) => {
                 this.editor.session.replace(
                     new Range(lineNo, ch, lineNo, ch + prevColor.length),
                     newColor
                 );
-                this.editor.focus();
+                // this.editor.focus();
                 prevColor = newColor;
             });
 
@@ -241,18 +287,16 @@ export default class ColorView {
     }
 
     close_color_picker() {
-        if (this.colorpicker)
-        {
+        if (this.colorpicker) {
             this.colorpicker.hide();
         }
     }
 
     hide_delay_color_picker() {
-        if (this.colorpicker)
-        {
+        if (this.colorpicker) {
             this.colorpicker.runHideDelay();
         }
-    }    
+    }
 
     key(lineNo, ch) {
         return [lineNo, ch].join(":");
@@ -261,7 +305,7 @@ export default class ColorView {
 
     keyup(evt) {
 
-        if (this.colorpicker ) {
+        if (this.colorpicker) {
             if (evt.key == 'Escape') {
                 this.colorpicker.hide();
             } else if (this.colorpicker.isShortCut == false) {
@@ -280,7 +324,7 @@ export default class ColorView {
         } else {
             var max = this.editor.session.getLength();
 
-            for(var lineNo = 0; lineNo < max; lineNo++) {
+            for (var lineNo = 0; lineNo < max; lineNo++) {
                 this.match(lineNo);
             }
         }
@@ -290,7 +334,7 @@ export default class ColorView {
     empty_marker(lineNo, lineHandle) {
         var list = lineHandle.markedSpans || [];
 
-        for(var i = 0, len = list.length; i < len; i++) {
+        for (var i = 0, len = list.length; i < len; i++) {
             var key = this.key(lineNo, list[i].from);
 
             if (key && has_class(list[i].marker.replacedWith, colorpicker_class)) {
@@ -302,7 +346,7 @@ export default class ColorView {
     }
 
 
-    
+
     match_result(lineHandle) {
         return Color.matches(lineHandle.text);
     }
@@ -310,16 +354,16 @@ export default class ColorView {
     submatch(lineNo, lineHandle) {
 
         this.empty_marker(lineNo, lineHandle);
-        
-        const result = this.match_result(lineHandle); 
-        let obj = { next : 0 }; 
+
+        const result = this.match_result(lineHandle);
+        let obj = { next: 0 };
 
         result.forEach(item => {
             this.render(obj, lineNo, lineHandle, item.color, item.nameColor);
         });
     }
 
-    createLineHandle (lineNo) {
+    createLineHandle(lineNo) {
 
         if (!lineNo) {
             lineNo = this.editor.selection.cursor.row;
@@ -343,7 +387,7 @@ export default class ColorView {
         var el = document.createElement('div');
 
         el.className = colorpicker_class;
-        el.title ="open color picker";
+        el.title = "open color picker";
 
         el.back_element = this.make_background_element();
         el.appendChild(el.back_element);
@@ -385,7 +429,7 @@ export default class ColorView {
 
     }
 
-    init_marker (lineNo, start) {
+    init_marker(lineNo, start) {
         this.markers[this.key(lineNo, start)] = this.make_element();
     }
 
@@ -394,7 +438,7 @@ export default class ColorView {
     }
 
     get_marker(lineNo, start) {
-        var key = this.key(lineNo,start);
+        var key = this.key(lineNo, start);
         return this.markers[key]
     }
 
@@ -402,20 +446,26 @@ export default class ColorView {
         el.back_element.style.backgroundColor = color;
     }
 
-    update_marker (line, ch, el) {
-        const { Range } = this.ace; 
+    update_marker(line, ch, el) {
+        const { Range } = this.ace;
+
         return {
-            update (html, markerLayer, session, config) {
+            get_marker: (line, ch) => {
+                return this.get_marker(line, ch);
+            },
+            update(html, markerLayer, session, config) {
 
                 const screenPosition = session.documentToScreenPosition(line, ch);
-              
+
                 const top = markerLayer.$getTop(screenPosition.row, config);
                 const left = markerLayer.$padding + screenPosition.column * config.characterWidth;
                 const height = config.lineHeight;
+                const width = this.get_marker(line, ch).color.length * config.characterWidth;
 
 
-                el.style.left = (left + 0.5) + 'px';
+                el.style.left = (left - 2) + 'px';
                 el.style.top = (top + (height / 2)) + 'px';
+                el.style.width = (width + 4) + 'px';
                 markerLayer.element.appendChild(el);
                 markerLayer.i = -1;
             }
@@ -424,25 +474,19 @@ export default class ColorView {
     }
 
     set_mark(line, ch, el) {
-        // const { Range } = this.ace;
         this.editor.session.addDynamicMarker(
             this.update_marker(line, ch, el),
-            true
+            true   /* front */
         )
-        
-            // 
-
-        // this.cm.setBookmark({ line : line, ch : ch}, { widget : el, handleMouseEvents : true} );
     }
 
     is_excluded_token(line, ch) {
         var token = this.editor.session.getTokenAt(line, ch);
 
-        console.log(token);
-        var type = token.type; 
+        var type = token.type;
         // var state = token.state.state;
 
-        if (type === 'variable') return true; 
+        if (type === 'variable') return true;
 
         if (type.includes('color')) return false;
 
@@ -450,11 +494,11 @@ export default class ColorView {
         // if (type == null && state == 'top')  return true;
         // if (type == null && state == 'prop')  return true;
 
-        var count = 0; 
-        for(var i = 0, len = this.excluded_token.length; i < len; i++) {
+        var count = 0;
+        for (var i = 0, len = this.excluded_token.length; i < len; i++) {
             if (type === this.excluded_token[i]) {
                 count++;
-                break; 
+                break;
             }
         }
 
@@ -464,8 +508,6 @@ export default class ColorView {
     render(cursor, lineNo, lineHandle, color, nameColor) {
         var start = lineHandle.text.indexOf(color, cursor.next);
 
-        console.log(start, color, nameColor);
-
         if (this.is_excluded_token(lineNo, start) === true) {
             // excluded token do not show.
             return;
@@ -473,14 +515,13 @@ export default class ColorView {
 
         cursor.next = start + color.length;
 
-        if (this.has_marker(lineNo, start))
-        {
+        if (this.has_marker(lineNo, start)) {
             this.update_element(this.create_marker(lineNo, start), nameColor || color);
             this.set_state(lineNo, start, color, nameColor);
             return;
         }
 
-        var el  = this.create_marker(lineNo, start);
+        var el = this.create_marker(lineNo, start);
 
         this.update_element(el, nameColor || color);
 
@@ -489,8 +530,8 @@ export default class ColorView {
         this.set_mark(lineNo, start, el);
 
     }
-        
+
 
 }
 
-   
+

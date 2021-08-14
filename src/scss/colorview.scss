@@ -9,9 +9,11 @@
 	height : 10px;
     cursor: pointer;
     vertical-align: middle;
-    transform: translateX(-100%) translateY(-50%);
+    transform: translateY(-50%);
     pointer-events: all;
     @include transparent-background();
+    padding: 10px 10px; 
+    z-index: -100;
 
     .ace-colorview-background {
         content: "";

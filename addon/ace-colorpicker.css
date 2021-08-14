@@ -9,10 +9,12 @@
   height: 10px;
   cursor: pointer;
   vertical-align: middle;
-  -webkit-transform: translateX(-100%) translateY(-50%);
-          transform: translateX(-100%) translateY(-50%);
+  -webkit-transform: translateY(-50%);
+          transform: translateY(-50%);
   pointer-events: all;
-  background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAJElEQVQYV2NctWrVfwYkEBYWxojMZ6SDAmT7QGx0K1EcRBsFAADeG/3M/HteAAAAAElFTkSuQmCC") repeat; }
+  background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAJElEQVQYV2NctWrVfwYkEBYWxojMZ6SDAmT7QGx0K1EcRBsFAADeG/3M/HteAAAAAElFTkSuQmCC") repeat;
+  padding: 10px 10px;
+  z-index: -100; }
   .ace-colorview .ace-colorview-background {
     content: "";
     position: absolute;

@@ -9509,58 +9509,11 @@ var colorpicker_background_class = 'ace-colorview-background';
 // Excluded tokens do not show color views..
 var excluded_token = ['comment', 'builtin', 'qualifier'];
 
-function onChange(ace, editor, colorview, evt) {
-    if (evt.origin == 'setValue') {
-        // if content is changed by setValue method, it initialize markers
-        // cm.state.colorpicker.close_color_picker();
-        colorview.init_color_update();
-        colorview.style_color_update();
-    } else {
-        colorview.style_color_update(colorview.createLineHandle());
-    }
-}
-
-function onUpdate(ace, editor, colorview, evt) {
-    if (!colorview.isUpdate) {
-        colorview.isUpdate = true;
-        colorview.close_color_picker();
-        colorview.init_color_update();
-        colorview.style_color_update();
-    }
-}
-
 function onMousedown(ace, editor, colorview, evt) {
     // if (cm.state.colorpicker.is_edit_mode())
     // {
     colorview.check_mousedown(evt);
     // }
-}
-
-function onPaste(ace, editor, colorview, evt) {
-    onChange(ace, editor, colorview, { origin: 'setValue' });
-}
-
-function onScroll(ace, editor, colorview) {
-    colorview.close_color_picker();
-}
-
-function onBlur(ace, editor, colorview) {
-    colorview.hide_delay_color_picker(colorview.opt.hideDelay || 1000);
-}
-
-function debounce(callback, delay) {
-
-    var t = undefined;
-
-    return function (cm, e) {
-        if (t) {
-            clearTimeout(t);
-        }
-
-        t = setTimeout(function () {
-            callback(cm, e);
-        }, delay || 300);
-    };
 }
 
 function has_class(el, cls) {
@@ -9593,40 +9546,88 @@ var ColorView = function () {
     createClass(ColorView, [{
         key: 'init_event',
         value: function init_event() {
-            var _this = this;
 
             // this.cm.on('mousedown', onMousedown);
             // this.cm.on('keyup', onKeyup);
 
-            this.onChange = function (evt) {
-                onChange(_this.ace, _this.editor, _this, evt);
-            };
+            // this.onChange = (evt) => {
+            //     onChange(this.ace, this.editor, this, evt);
+            // }
 
-            this.onUpdate = function (evt) {
-                onUpdate(_this.ace, _this.editor, _this, evt);
-            };
+            // this.onUpdate = (evt) => {
+            //     onUpdate(this.ace, this.editor, this, evt);
+            // }        
 
-            this.editor.session.on('change', this.onChange);
-            this.editor.session.on('tokenizerUpdate', this.onUpdate);
 
-            this.onBlur = function (evt) {
-                onBlur(_this.ace, _this.editor, _this, evt);
-            };
-            // this.cm.on('refresh', onRefresh);
-            this.editor.on('blur', this.onBlur);
+            // this.editor.session.on('change', this.onChange);
+            // this.editor.session.on('tokenizerUpdate', this.onUpdate);
 
-            // create paste callback
-            this.onPaste = function (evt) {
-                onPaste(_this.ace, _this.editor, _this, evt);
-            };
 
-            this.onScrollEvent = debounce(function () {
-                onScroll(_this.ace, _this.editor);
-            }, 50);
+            // this.onBlur = (evt) => {
+            //     onBlur(this.ace, this.editor, this, evt);
+            // }                        
+            // // this.cm.on('refresh', onRefresh);
+            // this.editor.on('blur', this.onBlur); 
 
-            this.editor.on('paste', this.onPaste);
+            // // create paste callback
+            // this.onPaste = (evt) => {
+            //     onPaste(this.ace, this.editor, this, evt);
+            // }
 
-            this.editor.session.on('changeScrollTop', this.onScrollEvent);
+            // this.onScrollEvent = debounce(() => {
+            //     onScroll(this.ace, this.editor);
+            // }, 50)
+
+            // this.editor.on('paste', this.onPaste);
+
+            // this.editor.session.on('changeScrollTop', this.onScrollEvent);
+
+            // this.editor.session.setMode("ace/mode/css");
+
+            var rules = editor.session.$mode.$highlightRules.getRules();
+            for (var stateName in rules) {
+                if (Object.prototype.hasOwnProperty.call(rules, stateName)) {
+                    rules[stateName].unshift({
+                        token: function token(value) {
+
+                            if (value.indexOf('#') > -1 || value.indexOf('rgb') > -1 || value.indexOf('hsl') > -1) {
+                                return "color";
+                            }
+
+                            if (ColorNames.getColorByName(value)) {
+                                return "color";
+                            }
+
+                            return 'text';
+                        },
+                        regex: '#(?:[\\da-f]{8})|#(?:[\\da-f]{3}){1,2}|rgb\\((?:\\s*\\d{1,3},\\s*){2}\\d{1,3}\\s*\\)|rgba\\((?:\\s*\\d{1,3},\\s*){3}\\d*\\.?\\d+\\s*\\)|hsl\\(\\s*\\d{1,3}(?:,\\s*\\d{1,3}%){2}\\s*\\)|hsla\\(\\s*\\d{1,3}(?:,\\s*\\d{1,3}%){2},\\s*\\d*\\.?\\d+\\s*\\)'
+                    });
+                }
+            }
+            // force recreation of tokenizer
+            editor.session.$mode.$tokenizer = null;
+            editor.session.bgTokenizer.setTokenizer(editor.session.$mode.getTokenizer());
+            // force re-highlight whole document
+            editor.session.bgTokenizer.start(0);
+
+            // each editor render update, update all displayed colors
+            //
+            this.editor.renderer.on('afterRender', function () {
+
+                // each time renderer updates, get all elements with ace_color class
+                var colors = document.getElementsByClassName("ace_color");
+
+                // iterate through them and set their background color and font color accordingly
+                for (var i = 0; i < colors.length; i++) {
+                    var colorObj = Color$1.parse(colors[i].innerHTML);
+
+                    if (brightness(colorObj.r, colorObj.g, colorObj.b) > 127) {
+                        colors[i].setAttribute('style', 'background-color:' + colors[i].innerHTML + ';color:#000');
+                    } else {
+                        colors[i].setAttribute('style', 'background-color:' + colors[i].innerHTML + ';color:#fff');
+                    }
+                }
+            });
         }
 
         // is_edit_mode() {
@@ -9704,7 +9705,7 @@ var ColorView = function () {
     }, {
         key: 'open_color_picker',
         value: function open_color_picker(el) {
-            var _this2 = this;
+            var _this = this;
 
             var lineNo = el.lineNo;
             var ch = el.ch;
@@ -9716,17 +9717,14 @@ var ColorView = function () {
             if (this.colorpicker) {
                 var prevColor = color;
                 var pos = el.getBoundingClientRect();
-                // console.log(this.editor.session.documentToScreenPosition(lineNo, ch));
-                // var pos = this.cm.charCoords({line : lineNo, ch : ch });
-                // console.log(pos, el.style.left, el.style.top);
                 this.colorpicker.show({
                     left: pos.left,
                     top: pos.bottom + 50,
                     isShortCut: el.isShortCut || false,
                     hideDelay: this.opt.hideDelay || 2000
                 }, nameColor || color, function (newColor) {
-                    _this2.editor.session.replace(new Range(lineNo, ch, lineNo, ch + prevColor.length), newColor);
-                    _this2.editor.focus();
+                    _this.editor.session.replace(new Range(lineNo, ch, lineNo, ch + prevColor.length), newColor);
+                    // this.editor.focus();
                     prevColor = newColor;
                 });
             }
@@ -9802,7 +9800,7 @@ var ColorView = function () {
     }, {
         key: 'submatch',
         value: function submatch(lineNo, lineHandle) {
-            var _this3 = this;
+            var _this2 = this;
 
             this.empty_marker(lineNo, lineHandle);
 
@@ -9810,7 +9808,7 @@ var ColorView = function () {
             var obj = { next: 0 };
 
             result.forEach(function (item) {
-                _this3.render(obj, lineNo, lineHandle, item.color, item.nameColor);
+                _this2.render(obj, lineNo, lineHandle, item.color, item.nameColor);
             });
         }
     }, {
@@ -9838,7 +9836,7 @@ var ColorView = function () {
     }, {
         key: 'make_element',
         value: function make_element() {
-            var _this4 = this;
+            var _this3 = this;
 
             var el = document.createElement('div');
 
@@ -9849,7 +9847,7 @@ var ColorView = function () {
             el.appendChild(el.back_element);
 
             el.addEventListener('mousedown', function (evt) {
-                onMousedown(_this4.ace, _this4.editor, _this4, evt);
+                onMousedown(_this3.ace, _this3.editor, _this3, evt);
             });
 
             return el;
@@ -9909,9 +9907,15 @@ var ColorView = function () {
     }, {
         key: 'update_marker',
         value: function update_marker(line, ch, el) {
+            var _this4 = this;
+
             var Range = this.ace.Range;
 
+
             return {
+                get_marker: function get_marker(line, ch) {
+                    return _this4.get_marker(line, ch);
+                },
                 update: function update(html, markerLayer, session, config) {
 
                     var screenPosition = session.documentToScreenPosition(line, ch);
@@ -9919,9 +9923,11 @@ var ColorView = function () {
                     var top = markerLayer.$getTop(screenPosition.row, config);
                     var left = markerLayer.$padding + screenPosition.column * config.characterWidth;
                     var height = config.lineHeight;
+                    var width = this.get_marker(line, ch).color.length * config.characterWidth;
 
-                    el.style.left = left + 0.5 + 'px';
+                    el.style.left = left - 2 + 'px';
                     el.style.top = top + height / 2 + 'px';
+                    el.style.width = width + 4 + 'px';
                     markerLayer.element.appendChild(el);
                     markerLayer.i = -1;
                 }
@@ -9930,19 +9936,14 @@ var ColorView = function () {
     }, {
         key: 'set_mark',
         value: function set_mark(line, ch, el) {
-            // const { Range } = this.ace;
-            this.editor.session.addDynamicMarker(this.update_marker(line, ch, el), true);
-
-            // 
-
-            // this.cm.setBookmark({ line : line, ch : ch}, { widget : el, handleMouseEvents : true} );
+            this.editor.session.addDynamicMarker(this.update_marker(line, ch, el), true /* front */
+            );
         }
     }, {
         key: 'is_excluded_token',
         value: function is_excluded_token(line, ch) {
             var token = this.editor.session.getTokenAt(line, ch);
 
-            console.log(token);
             var type = token.type;
             // var state = token.state.state;
 
@@ -9968,8 +9969,6 @@ var ColorView = function () {
         key: 'render',
         value: function render(cursor, lineNo, lineHandle, color, nameColor) {
             var start = lineHandle.text.indexOf(color, cursor.next);
-
-            console.log(start, color, nameColor);
 
             if (this.is_excluded_token(lineNo, start) === true) {
                 // excluded token do not show.
