@@ -51,12 +51,13 @@ after npm install
 
 <script type="text/javascript">
 
-var editor = ace.edit("sample_text_area", {
-    mode: "ace/mode/css"
-});
+var editor = ace.edit("sample_text_area");
 editor.setTheme("ace/theme/solarized_light");    
+editor.session.setMode("ace/mode/css", () => {
+  AceColorPicker.load(ace, editor);
+})
 
-AceColorPicker.load(ace, editor);
+
 
 </script>
 
