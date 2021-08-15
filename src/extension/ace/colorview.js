@@ -38,7 +38,7 @@ export default class ColorView {
             const screenPosition = renderer.screenToTextCoordinates(evt.clientX - layerConfig.padding, evt.clientY);
             const token = session.getTokenAt(screenPosition.row, screenPosition.column);
 
-            if (token.type !== 'color') {
+            if (token.type.includes("color") === false) {
                 return;
             }
 
