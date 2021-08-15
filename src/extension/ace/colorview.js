@@ -1,85 +1,9 @@
 import Color from '../../util/Color'
 import ColorPicker from '../../colorpicker/index';
-import ColorNames from '../../util/ColorNames';
 import { brightness } from '../../util/functions/fromRGB';
+import Dom from '../../util/Dom';
 
-const colorpicker_class = 'ace-colorview';
-const colorpicker_background_class = 'ace-colorview-background';
-// Excluded tokens do not show color views..
-let excluded_token = ['comment', 'builtin', 'qualifier'];
-
-
-function onChange(ace, editor, colorview, evt) {
-    if (evt.origin == 'setValue') {  // if content is changed by setValue method, it initialize markers
-        // cm.state.colorpicker.close_color_picker();
-        colorview.init_color_update();
-        colorview.style_color_update();
-    } else {
-        colorview.style_color_update(colorview.createLineHandle());
-    }
-
-}
-
-function onUpdate(ace, editor, colorview, evt) {
-    if (!colorview.isUpdate) {
-        colorview.isUpdate = true;
-        colorview.close_color_picker();
-        colorview.init_color_update();
-        colorview.style_color_update();
-    }
-}
-
-function onRefresh(ace, editor, colorview, evt) {
-    onChange(ace, editor, colorview, { origin: 'setValue' });
-}
-
-function onKeyup(cm, evt) {
-    cm.state.colorpicker.keyup(evt);
-}
-
-function onMousedown(ace, editor, colorview, evt) {
-    // if (cm.state.colorpicker.is_edit_mode())
-    // {
-    colorview.check_mousedown(evt);
-    // }
-}
-
-function onPaste(ace, editor, colorview, evt) {
-    onChange(ace, editor, colorview, { origin: 'setValue' });
-}
-
-function onScroll(ace, editor, colorview) {
-    colorview.close_color_picker();
-}
-
-function onBlur(ace, editor, colorview) {
-    colorview.hide_delay_color_picker(colorview.opt.hideDelay || 1000);
-}
-
-function debounce(callback, delay) {
-
-    var t = undefined;
-
-    return function (cm, e) {
-        if (t) {
-            clearTimeout(t);
-        }
-
-        t = setTimeout(function () {
-            callback(cm, e);
-        }, delay || 300);
-    }
-}
-
-function has_class(el, cls) {
-    if (!el || !el.className) {
-        return false;
-    } else {
-        var newClass = ' ' + el.className + ' ';
-        return newClass.indexOf(' ' + cls + ' ') > -1;
-    }
-}
-
+const colorpicker_token_class = 'ace_color';
 
 export default class ColorView {
     constructor(ace, editor, opt = {}) {
@@ -90,200 +14,128 @@ export default class ColorView {
         this.editor = editor;
         this.markers = {};
 
-        // set excluded token 
-        this.excluded_token = this.opt.excluded_token || excluded_token;
-
         this.colorpicker = ColorPicker.create(this.opt);
         this.lineHandles = {}
         this.init_event();
 
     }
 
+    get_brightness(colorString) {
+        const colorObj = Color.parse(colorString);
+        const fontColorString = brightness(colorObj.r, colorObj.g, colorObj.b) > 127 ? "#000" : "#fff";
+
+        return fontColorString;
+    }
+
+    mouse_over (evt) {
+        const { Range } = this.ace;
+        const $colorElement = new Dom(evt.target);
+
+        if ($colorElement.hasClass(colorpicker_token_class)) {
+            const { renderer, session } = this.editor;
+            const { layerConfig } = renderer;
+
+            const screenPosition = renderer.screenToTextCoordinates(evt.clientX - layerConfig.characterWidth/2, evt.clientY);
+            const token = session.getTokenAt(screenPosition.row, screenPosition.column);
+
+            if (token.type !== 'color') {
+                return;
+            }
+
+            const row = screenPosition.row;
+            const startColumn = token.start; 
+            const colorString = token.value; 
+
+            let prevColor = colorString;
+            const pos =  renderer.textToScreenCoordinates(row, startColumn);
+
+            this.colorpicker.show({
+                left: pos.pageX,
+                top: pos.pageY + layerConfig.lineHeight + 1,
+                hideDelay: this.opt.hideDelay || 2000
+            }, colorString, (newColor) => {
+                this.editor.session.replace(
+                    new Range(row, startColumn, row, startColumn + prevColor.length),
+                    newColor
+                );
+                prevColor = newColor;
+            });
+        }
+
+    }
+
+    init_mouse_event() {
+
+        const { renderer } = this.editor; 
+        const { content } = renderer;
+
+        this.onMouseOver = this.mouse_over.bind(this);
+        
+        content.addEventListener('mouseover', this.onMouseOver);
+        content.addEventListener('mousemove', this.onMouseOver);
+
+    }
+
 
     init_event() {
 
-        // this.cm.on('mousedown', onMousedown);
-        // this.cm.on('keyup', onKeyup);
+        const { renderer, session } = this.editor; 
+        const { content } = renderer;
 
-        // this.onChange = (evt) => {
-        //     onChange(this.ace, this.editor, this, evt);
-        // }
+        this.init_mouse_event();
 
-        // this.onUpdate = (evt) => {
-        //     onUpdate(this.ace, this.editor, this, evt);
-        // }        
-
-
-        // this.editor.session.on('change', this.onChange);
-        // this.editor.session.on('tokenizerUpdate', this.onUpdate);
-
-
-        // this.onBlur = (evt) => {
-        //     onBlur(this.ace, this.editor, this, evt);
-        // }                        
-        // // this.cm.on('refresh', onRefresh);
-        // this.editor.on('blur', this.onBlur); 
-
-        // // create paste callback
-        // this.onPaste = (evt) => {
-        //     onPaste(this.ace, this.editor, this, evt);
-        // }
-
-        // this.onScrollEvent = debounce(() => {
-        //     onScroll(this.ace, this.editor);
-        // }, 50)
-
-        // this.editor.on('paste', this.onPaste);
-
-        // this.editor.session.on('changeScrollTop', this.onScrollEvent);
-
-        // this.editor.session.setMode("ace/mode/css");
-
-        let rules = editor.session.$mode.$highlightRules.getRules();
+        let rules = session.$mode.$highlightRules.getRules();
         for (let stateName in rules) {
             if (Object.prototype.hasOwnProperty.call(rules, stateName)) {
                 rules[stateName].unshift({
-                    token: (value) => {
-
-                        if (value.indexOf('#') > -1 || value.indexOf('rgb') > -1 || value.indexOf('hsl') > -1) {
-                            return "color";
-                        }
-
-                        if (ColorNames.getColorByName(value)) {
-                            return "color";
-                        }
-
-                        return 'text'
-                    },
+                    token: "color",
                     regex: '#(?:[\\da-f]{8})|#(?:[\\da-f]{3}){1,2}|rgb\\((?:\\s*\\d{1,3},\\s*){2}\\d{1,3}\\s*\\)|rgba\\((?:\\s*\\d{1,3},\\s*){3}\\d*\\.?\\d+\\s*\\)|hsl\\(\\s*\\d{1,3}(?:,\\s*\\d{1,3}%){2}\\s*\\)|hsla\\(\\s*\\d{1,3}(?:,\\s*\\d{1,3}%){2},\\s*\\d*\\.?\\d+\\s*\\)'
                 });
+
+                // FIXME: Exception handling when the highlight does not turn into color due to the scss function name
+                // LINK : https://github.com/ajaxorg/ace/blob/cbcb78c3a7c5e642d615a9f5665a44dbb94d3e92/lib/ace/mode/scss_highlight_rules.js#L43-L48
+                rules[stateName].unshift({
+                    token: "color",
+                    regex: "blue|green|red"
+                });                
+
             }
         }
         // force recreation of tokenizer
-        editor.session.$mode.$tokenizer = null;
-        editor.session.bgTokenizer.setTokenizer(editor.session.$mode.getTokenizer());
+        session.$mode.$tokenizer = null;
+        session.bgTokenizer.setTokenizer(editor.session.$mode.getTokenizer());
         // force re-highlight whole document
-        editor.session.bgTokenizer.start(0);
+        session.bgTokenizer.start(0);
 
         // each editor render update, update all displayed colors
-        //
-        this.editor.renderer.on('afterRender', function () {
+        renderer.on('afterRender', () => {
 
             // each time renderer updates, get all elements with ace_color class
-            var colors = document.getElementsByClassName("ace_color");
+            var colors = content.getElementsByClassName(colorpicker_token_class);
 
             // iterate through them and set their background color and font color accordingly
-            for (var i = 0; i < colors.length; i++) {
-                const colorObj = Color.parse(colors[i].innerHTML);
+            for (var i = 0, len = colors.length; i < len; i++) {
 
-                if (brightness(colorObj.r, colorObj.g, colorObj.b) > 127) {
-                    colors[i].setAttribute('style', 'background-color:' + colors[i].innerHTML + ';color:#000');
-                }
-                else {
-                    colors[i].setAttribute('style', 'background-color:' + colors[i].innerHTML + ';color:#fff');
-                }
+                const fontColorString = this.get_brightness(colors[i].innerHTML);
+                const colorString = colors[i].innerHTML;
+
+                colors[i].style.cssText = `
+                    background-color: ${colorString};
+                    color: ${fontColorString};
+                    pointer-events: all;
+                `
             }
         });
 
 
     }
-
-    // is_edit_mode() {
-    //     return this.opt.mode == 'edit';
-    // }
-
-    // is_view_mode() {
-    //     return this.opt.mode == 'view';
-    // }
 
     destroy() {
-        // this.cm.off('mousedown', onMousedown);
-        // this.cm.off('keyup', onKeyup);
-        this.editor.session.off('change', this.onChange)
-        this.editor.session.off('tokenizerUpdate', this.onUpdate)
-        this.editor.off('blur', this.onBlur);
-        this.editor.off('paste', this.onPaste);
+        const { renderer } = this.editor; 
+        const { content } = renderer;
 
-        // this.cm.getWrapperElement().removeEventListener('paste', this.onPasteCallback);
-
-        // if (this.is_edit_mode())
-        // {
-        this.editor.session.off('changeScrollTop', this.onScrollEvent);
-        // }
-    }
-
-    hasClass(el, className) {
-        if (!el.className) {
-            return false;
-        } else {
-            var newClass = ' ' + el.className + ' ';
-            return newClass.indexOf(' ' + className + ' ') > -1;
-        }
-    }
-
-    check_mousedown(evt) {
-        if (this.hasClass(evt.target, colorpicker_background_class)) {
-            this.open_color_picker(evt.target.parentNode);
-        } else {
-            this.close_color_picker();
-        }
-    }
-
-    popup_color_picker(defalutColor) {
-        var cursor = this.cm.getCursor();
-        var self = this;
-        var colorMarker = {
-            lineNo: cursor.line,
-            ch: cursor.ch,
-            color: defalutColor || '#FFFFFF',
-            isShortCut: true
-        };
-
-        Object.keys(this.markers).forEach(function (key) {
-            var searchKey = "#" + key;
-            if (searchKey.indexOf("#" + colorMarker.lineNo + ":") > -1) {
-                var marker = self.markers[key];
-
-                if (marker.ch <= colorMarker.ch && colorMarker.ch <= marker.ch + marker.color.length) {
-                    // when cursor has marker
-                    colorMarker.ch = marker.ch;
-                    colorMarker.color = marker.color;
-                    colorMarker.nameColor = marker.nameColor;
-                }
-
-            }
-        });
-
-        this.open_color_picker(colorMarker);
-    }
-
-    open_color_picker(el) {
-        var lineNo = el.lineNo;
-        var ch = el.ch;
-        var nameColor = el.nameColor;
-        var color = el.color;
-        const { Range } = this.ace;
-
-
-        if (this.colorpicker) {
-            var prevColor = color;
-            const pos = el.getBoundingClientRect();
-            this.colorpicker.show({
-                left: pos.left,
-                top: pos.bottom + 50,
-                isShortCut: el.isShortCut || false,
-                hideDelay: this.opt.hideDelay || 2000
-            }, nameColor || color, (newColor) => {
-                this.editor.session.replace(
-                    new Range(lineNo, ch, lineNo, ch + prevColor.length),
-                    newColor
-                );
-                // this.editor.focus();
-                prevColor = newColor;
-            });
-
-        }
-
+        content.removeEventListener('mouseover', this.onMouseOver);
+        content.removeEventListener('mousemove', this.onMouseOver);
     }
 
     close_color_picker() {
@@ -312,223 +164,6 @@ export default class ColorView {
                 this.colorpicker.hide();
             }
         }
-    }
-
-    init_color_update() {
-        this.markers = {};  // initialize marker list
-    }
-
-    style_color_update(lineHandle) {
-        if (lineHandle) {
-            this.match(lineHandle.lineNo);
-        } else {
-            var max = this.editor.session.getLength();
-
-            for (var lineNo = 0; lineNo < max; lineNo++) {
-                this.match(lineNo);
-            }
-        }
-
-    }
-
-    empty_marker(lineNo, lineHandle) {
-        var list = lineHandle.markedSpans || [];
-
-        for (var i = 0, len = list.length; i < len; i++) {
-            var key = this.key(lineNo, list[i].from);
-
-            if (key && has_class(list[i].marker.replacedWith, colorpicker_class)) {
-                delete this.markers[key];
-                list[i].marker.clear();
-            }
-
-        }
-    }
-
-
-
-    match_result(lineHandle) {
-        return Color.matches(lineHandle.text);
-    }
-
-    submatch(lineNo, lineHandle) {
-
-        this.empty_marker(lineNo, lineHandle);
-
-        const result = this.match_result(lineHandle);
-        let obj = { next: 0 };
-
-        result.forEach(item => {
-            this.render(obj, lineNo, lineHandle, item.color, item.nameColor);
-        });
-    }
-
-    createLineHandle(lineNo) {
-
-        if (!lineNo) {
-            lineNo = this.editor.selection.cursor.row;
-        }
-
-        if (!this.lineHandles[lineNo]) {
-            this.lineHandles[lineNo] = { lineNo, markedSpans: [] }
-        }
-
-        this.lineHandles[lineNo].text = this.editor.session.getLine(lineNo);
-
-        return this.lineHandles[lineNo]
-    }
-
-    match(lineNo) {
-        var lineHandle = this.createLineHandle(lineNo);
-        this.submatch(lineNo, lineHandle);
-    }
-
-    make_element() {
-        var el = document.createElement('div');
-
-        el.className = colorpicker_class;
-        el.title = "open color picker";
-
-        el.back_element = this.make_background_element();
-        el.appendChild(el.back_element);
-
-        el.addEventListener('mousedown', (evt) => {
-            onMousedown(this.ace, this.editor, this, evt);
-        })
-
-        return el;
-    }
-
-    make_background_element() {
-        var el = document.createElement('div');
-
-        el.className = colorpicker_background_class;
-
-        return el;
-    }
-
-    set_state(lineNo, start, color, nameColor) {
-        var marker = this.create_marker(lineNo, start);
-
-
-        marker.lineNo = lineNo;
-        marker.ch = start;
-        marker.color = color;
-        marker.nameColor = nameColor;
-
-        return marker;
-    }
-
-    create_marker(lineNo, start) {
-
-        if (!this.has_marker(lineNo, start)) {
-            this.init_marker(lineNo, start);
-        }
-
-        return this.get_marker(lineNo, start);
-
-    }
-
-    init_marker(lineNo, start) {
-        this.markers[this.key(lineNo, start)] = this.make_element();
-    }
-
-    has_marker(lineNo, start) {
-        return !!this.get_marker(lineNo, start);
-    }
-
-    get_marker(lineNo, start) {
-        var key = this.key(lineNo, start);
-        return this.markers[key]
-    }
-
-    update_element(el, color) {
-        el.back_element.style.backgroundColor = color;
-    }
-
-    update_marker(line, ch, el) {
-        const { Range } = this.ace;
-
-        return {
-            get_marker: (line, ch) => {
-                return this.get_marker(line, ch);
-            },
-            update(html, markerLayer, session, config) {
-
-                const screenPosition = session.documentToScreenPosition(line, ch);
-
-                const top = markerLayer.$getTop(screenPosition.row, config);
-                const left = markerLayer.$padding + screenPosition.column * config.characterWidth;
-                const height = config.lineHeight;
-                const width = this.get_marker(line, ch).color.length * config.characterWidth;
-
-
-                el.style.left = (left - 2) + 'px';
-                el.style.top = (top + (height / 2)) + 'px';
-                el.style.width = (width + 4) + 'px';
-                markerLayer.element.appendChild(el);
-                markerLayer.i = -1;
-            }
-        }
-
-    }
-
-    set_mark(line, ch, el) {
-        this.editor.session.addDynamicMarker(
-            this.update_marker(line, ch, el),
-            true   /* front */
-        )
-    }
-
-    is_excluded_token(line, ch) {
-        var token = this.editor.session.getTokenAt(line, ch);
-
-        var type = token.type;
-        // var state = token.state.state;
-
-        if (type === 'variable') return true;
-
-        if (type.includes('color')) return false;
-
-        // if (type == null && state == 'block')  return true;
-        // if (type == null && state == 'top')  return true;
-        // if (type == null && state == 'prop')  return true;
-
-        var count = 0;
-        for (var i = 0, len = this.excluded_token.length; i < len; i++) {
-            if (type === this.excluded_token[i]) {
-                count++;
-                break;
-            }
-        }
-
-        return count > 0;   // true is that it has a excluded token 
-    }
-
-    render(cursor, lineNo, lineHandle, color, nameColor) {
-        var start = lineHandle.text.indexOf(color, cursor.next);
-
-        if (this.is_excluded_token(lineNo, start) === true) {
-            // excluded token do not show.
-            return;
-        }
-
-        cursor.next = start + color.length;
-
-        if (this.has_marker(lineNo, start)) {
-            this.update_element(this.create_marker(lineNo, start), nameColor || color);
-            this.set_state(lineNo, start, color, nameColor);
-            return;
-        }
-
-        var el = this.create_marker(lineNo, start);
-
-        this.update_element(el, nameColor || color);
-
-
-        this.set_state(lineNo, start, color, nameColor || color);
-        this.set_mark(lineNo, start, el);
-
     }
 
 

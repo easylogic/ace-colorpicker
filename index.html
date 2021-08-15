@@ -158,7 +158,7 @@ var cm = AceEditor.fromTextArea(document.getElementById("sample_text_area"), {
 
 var editor = ace.edit("sample_text_area");
 editor.setTheme("ace/theme/solarized_light");    
-editor.session.setMode("ace/mode/css", () => {
+editor.session.setMode("ace/mode/scss", () => {
     AceColorPicker.load(ace, editor);
 })
 
