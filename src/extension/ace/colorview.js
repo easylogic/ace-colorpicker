@@ -35,7 +35,7 @@ export default class ColorView {
             const { renderer, session } = this.editor;
             const { layerConfig } = renderer;
 
-            const screenPosition = renderer.screenToTextCoordinates(evt.clientX - layerConfig.characterWidth/2, evt.clientY);
+            const screenPosition = renderer.screenToTextCoordinates(evt.clientX - layerConfig.padding, evt.clientY);
             const token = session.getTokenAt(screenPosition.row, screenPosition.column);
 
             if (token.type !== 'color') {

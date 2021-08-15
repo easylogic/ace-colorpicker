@@ -9411,7 +9411,7 @@ var ColorView = function () {
                 var layerConfig = renderer.layerConfig;
 
 
-                var screenPosition = renderer.screenToTextCoordinates(evt.clientX - layerConfig.characterWidth / 2, evt.clientY);
+                var screenPosition = renderer.screenToTextCoordinates(evt.clientX - layerConfig.padding, evt.clientY);
                 var token = session.getTokenAt(screenPosition.row, screenPosition.column);
 
                 if (token.type !== 'color') {
