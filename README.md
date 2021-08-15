@@ -3,8 +3,6 @@
 
 This project was created to implement a color picker. It implemented basic functions for color and implemented image filters.
 
-https://colorpicker.easylogic.studio/
-
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
