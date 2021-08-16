@@ -6797,7 +6797,7 @@ var BaseColorPicker = function (_UIElement) {
             this.colorpickerLastUpdateCallback = function () {};
 
             this.$body = new Dom(this.getContainer());
-            this.$root = new Dom('div', 'codemirror-colorpicker');
+            this.$root = new Dom('div', this.opt.containerClass);
 
             //  append colorpicker to container (ex : body)
             if (this.opt.position == 'inline') {
@@ -7002,8 +7002,11 @@ var BaseColorPicker = function (_UIElement) {
 
             // set top position for color picker
             var elementScreenTop = opt.top - this.$body.scrollTop();
-            if (height + elementScreenTop > window.innerHeight) {
-                elementScreenTop -= height + elementScreenTop - window.innerHeight;
+            var elementScreenBottom = opt.bottom - this.$body.scrollTop();
+            if (height + elementScreenBottom > window.innerHeight) {
+                elementScreenTop -= height;
+            } else {
+                elementScreenTop = elementScreenBottom + 1;
             }
             if (elementScreenTop < 0) {
                 elementScreenTop = 0;
@@ -7029,7 +7032,7 @@ var BaseColorPicker = function (_UIElement) {
                 };
             } else {
                 return {
-                    position: 'fixed', // color picker has fixed position
+                    position: 'absolute', // color picker has fixed position
                     left: '-10000px',
                     top: '-10000px'
                 };
@@ -7159,11 +7162,9 @@ var BaseColorPicker = function (_UIElement) {
         key: 'checkColorPickerClass',
         value: function checkColorPickerClass(el) {
             var hasColorView = new Dom(el).closest('ace-colorview');
-            var hasColorPicker = new Dom(el).closest('codemirror-colorpicker');
-            var hasCodeMirror = new Dom(el).closest('CodeMirror');
-            var IsInHtml = el.nodeName == 'HTML';
+            var hasColorPicker = new Dom(el).closest('ace-colorpicker');
 
-            return !!(hasColorPicker || hasColorView || hasCodeMirror);
+            return !!(hasColorPicker || hasColorView);
         }
     }, {
         key: 'checkInHtml',
@@ -9371,10 +9372,14 @@ var ColorPicker = {
 };
 
 var colorpicker_token_class = 'ace_color';
+var colorpicker_container_class = 'ace-colorpicker';
 
 var ColorView = function () {
     function ColorView(ace, editor) {
-        var opt = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+        var opt = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {
+            type: 'vscode',
+            containerClass: colorpicker_container_class
+        };
         classCallCheck(this, ColorView);
 
         this.opt = opt;
@@ -9414,7 +9419,6 @@ var ColorView = function () {
                 var screenPosition = renderer.screenToTextCoordinates(evt.clientX - layerConfig.padding, evt.clientY);
                 var token = session.getTokenAt(screenPosition.row, screenPosition.column);
 
-                // return if type is not color
                 if (token.type.includes("color") === false) {
                     return;
                 }
@@ -9428,8 +9432,9 @@ var ColorView = function () {
 
                 this.colorpicker.show({
                     left: pos.pageX,
-                    top: pos.pageY + layerConfig.lineHeight + 1,
-                    hideDelay: this.opt.hideDelay || 2000
+                    top: pos.pageY,
+                    bottom: pos.pageY + layerConfig.lineHeight,
+                    hideDelay: this.opt.hideDelay || 0
                 }, colorString, function (newColor) {
                     _this.editor.session.replace(new Range(row, startColumn, row, startColumn + prevColor.length), newColor);
                     prevColor = newColor;
@@ -9495,7 +9500,7 @@ var ColorView = function () {
                     var fontColorString = _this2.get_brightness(colors[i].innerHTML);
                     var colorString = colors[i].innerHTML;
 
-                    colors[i].style.cssText = '\n                    background-color: ' + colorString + ';\n                    color: ' + fontColorString + ';\n                    pointer-events: all;\n                ';
+                    colors[i].style.cssText = '\n                    background-color: ' + colorString + ';\n                    color: ' + fontColorString + ';\n                    pointer-events: all;\n                    border-radius: 2px;\n                    padding: 0px 1px;\n                ';
                 }
             });
         }

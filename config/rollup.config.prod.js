@@ -13,10 +13,6 @@ export default [{
   output: {
     file: 'dist/' + packageJSON.name + '.min.js',
     format: 'iife',
-    globals: {
-      // "codemirror" : "window.CodeMirror"
-    },
-    // external: ['codemirror']
   },
   name: 'AceColorPicker',  
   plugins : [
@@ -40,10 +36,6 @@ export default [{
   output: {
     file: 'dist/' + packageJSON.name + '.js',
     format: 'umd',
-    globals: {
-      // "codemirror" : "CodeMirror"
-    },
-    // external: ['codemirror']
   },
   name: 'ace-colorpicker',
   plugins : [

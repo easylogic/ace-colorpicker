@@ -13,10 +13,6 @@ export default {
   output: {
     file: 'addon/' + packageJSON.name + '.js',
     format: 'iife',
-    globals: {
-      // "codemirror" : "window.CodeMirror"
-    },
-    // external: ['codemirror']
   },
   name: 'AceColorPicker',  
   plugins : [

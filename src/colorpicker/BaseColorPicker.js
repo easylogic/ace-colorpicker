@@ -44,7 +44,7 @@ export default class BaseColorPicker extends UIElement {
 
 
         this.$body = new Dom(this.getContainer());
-        this.$root = new Dom('div', 'codemirror-colorpicker');
+        this.$root = new Dom('div', this.opt.containerClass);
 
         //  append colorpicker to container (ex : body)
         if (this.opt.position == 'inline') {
@@ -220,8 +220,11 @@ export default class BaseColorPicker extends UIElement {
 
         // set top position for color picker
         var elementScreenTop = opt.top - this.$body.scrollTop();
-        if (height + elementScreenTop > window.innerHeight) {
-            elementScreenTop -= (height + elementScreenTop) - window.innerHeight;
+        var elementScreenBottom = opt.bottom - this.$body.scrollTop();
+        if (height + elementScreenBottom > window.innerHeight) {
+            elementScreenTop -= height;
+        } else {
+            elementScreenTop = elementScreenBottom + 1;
         }
         if (elementScreenTop < 0) { elementScreenTop = 0; }
 
@@ -244,7 +247,7 @@ export default class BaseColorPicker extends UIElement {
             }
         } else {
            return {
-                position: 'fixed',  // color picker has fixed position
+                position: 'absolute',  // color picker has fixed position
                 left: '-10000px',
                 top: '-10000px'
             }
@@ -362,11 +365,9 @@ export default class BaseColorPicker extends UIElement {
 
     checkColorPickerClass(el) {
         var hasColorView = new Dom(el).closest('ace-colorview');
-        var hasColorPicker = new Dom(el).closest('codemirror-colorpicker');
-        var hasCodeMirror = new Dom(el).closest('CodeMirror');
-        var IsInHtml = el.nodeName == 'HTML';
+        var hasColorPicker = new Dom(el).closest('ace-colorpicker');
 
-        return !!(hasColorPicker || hasColorView || hasCodeMirror);
+        return !!(hasColorPicker || hasColorView);
     }
 
     checkInHtml(el) {

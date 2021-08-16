@@ -4,9 +4,13 @@ import { brightness } from '../../util/functions/fromRGB';
 import Dom from '../../util/Dom';
 
 const colorpicker_token_class = 'ace_color';
+const colorpicker_container_class = 'ace-colorpicker'
 
 export default class ColorView {
-    constructor(ace, editor, opt = {}) {
+    constructor(ace, editor, opt = {
+        type: 'vscode',
+        containerClass: colorpicker_container_class
+    }) {
         var self = this;
 
         this.opt = opt;
@@ -27,7 +31,7 @@ export default class ColorView {
         return fontColorString;
     }
 
-    mouse_over (evt) {
+    mouse_over(evt) {
         const { Range } = this.ace;
         const $colorElement = new Dom(evt.target);
 
@@ -43,16 +47,17 @@ export default class ColorView {
             }
 
             const row = screenPosition.row;
-            const startColumn = token.start; 
-            const colorString = token.value; 
+            const startColumn = token.start;
+            const colorString = token.value;
 
             let prevColor = colorString;
-            const pos =  renderer.textToScreenCoordinates(row, startColumn);
+            const pos = renderer.textToScreenCoordinates(row, startColumn);
 
             this.colorpicker.show({
                 left: pos.pageX,
-                top: pos.pageY + layerConfig.lineHeight + 1,
-                hideDelay: this.opt.hideDelay || 2000
+                top: pos.pageY,
+                bottom: pos.pageY + layerConfig.lineHeight,                
+                hideDelay: this.opt.hideDelay || 0
             }, colorString, (newColor) => {
                 this.editor.session.replace(
                     new Range(row, startColumn, row, startColumn + prevColor.length),
@@ -66,11 +71,11 @@ export default class ColorView {
 
     init_mouse_event() {
 
-        const { renderer } = this.editor; 
+        const { renderer } = this.editor;
         const { content } = renderer;
 
         this.onMouseOver = this.mouse_over.bind(this);
-        
+
         content.addEventListener('mouseover', this.onMouseOver);
         content.addEventListener('mousemove', this.onMouseOver);
 
@@ -79,7 +84,7 @@ export default class ColorView {
 
     init_event() {
 
-        const { renderer, session } = this.editor; 
+        const { renderer, session } = this.editor;
         const { content } = renderer;
 
         this.init_mouse_event();
@@ -97,7 +102,7 @@ export default class ColorView {
                 rules[stateName].unshift({
                     token: "color",
                     regex: "blue|green|red"
-                });                
+                });
 
             }
         }
@@ -123,6 +128,8 @@ export default class ColorView {
                     background-color: ${colorString};
                     color: ${fontColorString};
                     pointer-events: all;
+                    border-radius: 2px;
+                    padding: 0px 1px;
                 `
             }
         });
@@ -131,7 +138,7 @@ export default class ColorView {
     }
 
     destroy() {
-        const { renderer } = this.editor; 
+        const { renderer } = this.editor;
         const { content } = renderer;
 
         content.removeEventListener('mouseover', this.onMouseOver);
