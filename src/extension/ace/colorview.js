@@ -2,6 +2,7 @@ import Color from '../../util/Color'
 import ColorPicker from '../../colorpicker/index';
 import { brightness } from '../../util/functions/fromRGB';
 import Dom from '../../util/Dom';
+import { debounce } from '../../util/functions/func';
 
 const colorpicker_token_class = 'ace_color';
 const colorpicker_container_class = 'ace-colorpicker'
@@ -9,6 +10,7 @@ const colorpicker_container_class = 'ace-colorpicker'
 export default class ColorView {
     constructor(ace, editor, opt = {
         type: 'vscode',
+        showDelay: 300,
         containerClass: colorpicker_container_class
     }) {
         var self = this;
@@ -32,39 +34,11 @@ export default class ColorView {
     }
 
     mouse_over(evt) {
-        const { Range } = this.ace;
         const $colorElement = new Dom(evt.target);
+        this.__colorview_check_target = evt.target; 
 
         if ($colorElement.hasClass(colorpicker_token_class)) {
-            const { renderer, session } = this.editor;
-            const { layerConfig } = renderer;
-
-            const screenPosition = renderer.screenToTextCoordinates(evt.clientX - layerConfig.padding, evt.clientY);
-            const token = session.getTokenAt(screenPosition.row, screenPosition.column);
-
-            if (token.type.includes("color") === false) {
-                return;
-            }
-
-            const row = screenPosition.row;
-            const startColumn = token.start;
-            const colorString = token.value;
-
-            let prevColor = colorString;
-            const pos = renderer.textToScreenCoordinates(row, startColumn);
-
-            this.colorpicker.show({
-                left: pos.pageX,
-                top: pos.pageY,
-                bottom: pos.pageY + layerConfig.lineHeight,                
-                hideDelay: this.opt.hideDelay || 0
-            }, colorString, (newColor) => {
-                this.editor.session.replace(
-                    new Range(row, startColumn, row, startColumn + prevColor.length),
-                    newColor
-                );
-                prevColor = newColor;
-            });
+            this.openDebouncedColorPicker(evt);
         }
 
     }
@@ -74,9 +48,11 @@ export default class ColorView {
         const { renderer } = this.editor;
         const { content } = renderer;
 
+        this.openDebouncedColorPicker = debounce(this.open_color_picker.bind(this), this.opt.showDelay);
+
         this.onMouseOver = this.mouse_over.bind(this);
 
-        content.addEventListener('mouseover', this.onMouseOver);
+        // content.addEventListener('mouseover', this.onMouseOver);
         content.addEventListener('mousemove', this.onMouseOver);
 
     }
@@ -141,8 +117,50 @@ export default class ColorView {
         const { renderer } = this.editor;
         const { content } = renderer;
 
-        content.removeEventListener('mouseover', this.onMouseOver);
+        // content.removeEventListener('mouseover', this.onMouseOver);
         content.removeEventListener('mousemove', this.onMouseOver);
+    }
+
+    open_color_picker(evt) {
+        // check wheather event.target is equals this.__colorview_check_target
+        if (evt.target !== this.__colorview_check_target) {
+            this.close_color_picker();
+            return; 
+        }
+
+        const { Range } = this.ace;
+        const { renderer, session } = this.editor;
+        const { layerConfig } = renderer;
+
+        const screenPosition = renderer.screenToTextCoordinates(evt.clientX - layerConfig.padding, evt.clientY);
+        const token = session.getTokenAt(screenPosition.row, screenPosition.column);
+
+        if (token.type.includes("color") === false) {
+            return;
+        }
+
+        const row = screenPosition.row;
+        const startColumn = token.start;
+        const colorString = token.value;
+
+        let prevColor = colorString;
+        const pos = renderer.textToScreenCoordinates(row, startColumn);
+
+        // support scrollTop
+        const scrollTop = Dom.getScrollTop()
+
+        this.colorpicker.show({
+            left: pos.pageX,
+            top: pos.pageY + scrollTop,
+            bottom: pos.pageY + scrollTop + layerConfig.lineHeight,
+            hideDelay: this.opt.hideDelay || 10
+        }, colorString, (newColor) => {
+            this.editor.session.replace(
+                new Range(row, startColumn, row, startColumn + prevColor.length),
+                newColor
+            );
+            prevColor = newColor;
+        });
     }
 
     close_color_picker() {

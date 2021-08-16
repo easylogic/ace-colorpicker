@@ -7137,9 +7137,9 @@ var BaseColorPicker = function (_UIElement) {
             var elementScreenTop = opt.top - this.$body.scrollTop();
             var elementScreenBottom = opt.bottom - this.$body.scrollTop();
             if (height + elementScreenBottom > window.innerHeight) {
-                elementScreenTop -= height;
+                elementScreenTop = elementScreenTop - height + this.$body.scrollTop();
             } else {
-                elementScreenTop = elementScreenBottom + 1;
+                elementScreenTop = elementScreenBottom + this.$body.scrollTop() + 1;
             }
             if (elementScreenTop < 0) {
                 elementScreenTop = 0;
@@ -9505,6 +9505,21 @@ var ColorPicker = {
     MiniVerticalColorPicker: MiniColorPicker$2
 };
 
+function debounce(callback, delay) {
+
+    var t = undefined;
+
+    return function ($1, $2, $3, $4, $5) {
+        if (t) {
+            clearTimeout(t);
+        }
+
+        t = setTimeout(function () {
+            callback($1, $2, $3, $4, $5);
+        }, delay || 300);
+    };
+}
+
 var colorpicker_token_class = 'ace_color';
 var colorpicker_container_class = 'ace-colorpicker';
 
@@ -9512,6 +9527,7 @@ var ColorView = function () {
     function ColorView(ace, editor) {
         var opt = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {
             type: 'vscode',
+            showDelay: 300,
             containerClass: colorpicker_container_class
         };
         classCallCheck(this, ColorView);
@@ -9537,42 +9553,11 @@ var ColorView = function () {
     }, {
         key: 'mouse_over',
         value: function mouse_over(evt) {
-            var _this = this;
-
-            var Range = this.ace.Range;
-
             var $colorElement = new Dom(evt.target);
+            this.__colorview_check_target = evt.target;
 
             if ($colorElement.hasClass(colorpicker_token_class)) {
-                var _editor = this.editor,
-                    renderer = _editor.renderer,
-                    session = _editor.session;
-                var layerConfig = renderer.layerConfig;
-
-
-                var screenPosition = renderer.screenToTextCoordinates(evt.clientX - layerConfig.padding, evt.clientY);
-                var token = session.getTokenAt(screenPosition.row, screenPosition.column);
-
-                if (token.type.includes("color") === false) {
-                    return;
-                }
-
-                var row = screenPosition.row;
-                var startColumn = token.start;
-                var colorString = token.value;
-
-                var prevColor = colorString;
-                var pos = renderer.textToScreenCoordinates(row, startColumn);
-
-                this.colorpicker.show({
-                    left: pos.pageX,
-                    top: pos.pageY,
-                    bottom: pos.pageY + layerConfig.lineHeight,
-                    hideDelay: this.opt.hideDelay || 0
-                }, colorString, function (newColor) {
-                    _this.editor.session.replace(new Range(row, startColumn, row, startColumn + prevColor.length), newColor);
-                    prevColor = newColor;
-                });
+                this.openDebouncedColorPicker(evt);
             }
         }
     }, {
@@ -9582,19 +9567,21 @@ var ColorView = function () {
             var content = renderer.content;
 
 
+            this.openDebouncedColorPicker = debounce(this.open_color_picker.bind(this), this.opt.showDelay);
+
             this.onMouseOver = this.mouse_over.bind(this);
 
-            content.addEventListener('mouseover', this.onMouseOver);
+            // content.addEventListener('mouseover', this.onMouseOver);
             content.addEventListener('mousemove', this.onMouseOver);
         }
     }, {
         key: 'init_event',
         value: function init_event() {
-            var _this2 = this;
+            var _this = this;
 
-            var _editor2 = this.editor,
-                renderer = _editor2.renderer,
-                session = _editor2.session;
+            var _editor = this.editor,
+                renderer = _editor.renderer,
+                session = _editor.session;
             var content = renderer.content;
 
 
@@ -9631,7 +9618,7 @@ var ColorView = function () {
                 // iterate through them and set their background color and font color accordingly
                 for (var i = 0, len = colors.length; i < len; i++) {
 
-                    var fontColorString = _this2.get_brightness(colors[i].innerHTML);
+                    var fontColorString = _this.get_brightness(colors[i].innerHTML);
                     var colorString = colors[i].innerHTML;
 
                     colors[i].style.cssText = '\n                    background-color: ' + colorString + ';\n                    color: ' + fontColorString + ';\n                    pointer-events: all;\n                    border-radius: 2px;\n                    padding: 0px 1px;\n                ';
@@ -9644,9 +9631,54 @@ var ColorView = function () {
             var renderer = this.editor.renderer;
             var content = renderer.content;
 
+            // content.removeEventListener('mouseover', this.onMouseOver);
 
-            content.removeEventListener('mouseover', this.onMouseOver);
             content.removeEventListener('mousemove', this.onMouseOver);
+        }
+    }, {
+        key: 'open_color_picker',
+        value: function open_color_picker(evt) {
+            var _this2 = this;
+
+            // check wheather event.target is equals this.__colorview_check_target
+            if (evt.target !== this.__colorview_check_target) {
+                this.close_color_picker();
+                return;
+            }
+
+            var Range = this.ace.Range;
+            var _editor2 = this.editor,
+                renderer = _editor2.renderer,
+                session = _editor2.session;
+            var layerConfig = renderer.layerConfig;
+
+
+            var screenPosition = renderer.screenToTextCoordinates(evt.clientX - layerConfig.padding, evt.clientY);
+            var token = session.getTokenAt(screenPosition.row, screenPosition.column);
+
+            if (token.type.includes("color") === false) {
+                return;
+            }
+
+            var row = screenPosition.row;
+            var startColumn = token.start;
+            var colorString = token.value;
+
+            var prevColor = colorString;
+            var pos = renderer.textToScreenCoordinates(row, startColumn);
+
+            // support scrollTop
+            var scrollTop = Dom.getScrollTop();
+
+            this.colorpicker.show({
+                left: pos.pageX,
+                top: pos.pageY + scrollTop,
+                bottom: pos.pageY + scrollTop + layerConfig.lineHeight,
+                hideDelay: this.opt.hideDelay || 10
+            }, colorString, function (newColor) {
+                _this2.editor.session.replace(new Range(row, startColumn, row, startColumn + prevColor.length), newColor);
+                prevColor = newColor;
+            });
         }
     }, {
         key: 'close_color_picker',
