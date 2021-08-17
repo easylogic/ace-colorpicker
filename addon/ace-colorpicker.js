@@ -9401,10 +9401,8 @@ var ColorView = function () {
         this.opt = opt;
         this.ace = ace;
         this.editor = editor;
-        this.markers = {};
 
         this.colorpicker = ColorPicker.create(this.opt);
-        this.lineHandles = {};
         this.init_event();
     }
 
@@ -9484,10 +9482,17 @@ var ColorView = function () {
                 // iterate through them and set their background color and font color accordingly
                 for (var i = 0, len = colors.length; i < len; i++) {
 
-                    var fontColorString = _this.get_brightness(colors[i].innerHTML);
-                    var colorString = colors[i].innerHTML;
+                    var colorString = colors[i].textContent;
 
-                    colors[i].style.cssText = '\n                    background-color: ' + colorString + ';\n                    color: ' + fontColorString + ';\n                    pointer-events: all;\n                    border-radius: 2px;\n                    padding: 0px 1px;\n                ';
+                    if (colors[i].getAttribute('data-color') === colorString) {
+                        // dont rerender the same color 
+                        continue;
+                    }
+
+                    var fontColorString = _this.get_brightness(colorString);
+
+                    colors[i].setAttribute("data-color", colorString);
+                    colors[i].style.cssText = '\n                    background-color: ' + colorString + ';\n                    color: ' + fontColorString + ';\n                    pointer-events: all;\n                ';
                 }
             });
         }

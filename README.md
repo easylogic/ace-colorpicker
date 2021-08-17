@@ -61,9 +61,22 @@ editor.session.setMode("ace/mode/css", () => {
 
 ```
 
+# Color code target 
+
+token with `ace_color` class name 
+
+
+# Support Mode 
+
+* ace/mode/css
+* ace/mode/less
+* ace/mode/scss
+
 # Options 
 
-### hideDelay :  Sets the delay time applied when the popup is closed. unit of ms
+### hideDelay 
+
+Sets the delay time applied when the popup is closed. unit of ms
 
 ```js
 AceColorPicker.load(ace, editor, { 
@@ -71,7 +84,9 @@ AceColorPicker.load(ace, editor, {
 })
 ```
 
-### showDelay :  Sets the delay time for opening the color picker. The default is 300ms.
+### showDelay 
+
+Sets the delay time for opening the color picker. The default is 300ms.
 
 The colorpicker opens only when the mouse is in the same place during the showDelay time.
 
