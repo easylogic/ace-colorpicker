@@ -52,13 +52,33 @@ after npm install
 var editor = ace.edit("sample_text_area");
 editor.setTheme("ace/theme/solarized_light");    
 editor.session.setMode("ace/mode/css", () => {
-  AceColorPicker.load(ace, editor);
+  AceColorPicker.load(ace, editor, { ....options });
 })
 
 
 
 </script>
 
+```
+
+# Options 
+
+### hideDelay :  Sets the delay time applied when the popup is closed. unit of ms
+
+```js
+AceColorPicker.load(ace, editor, { 
+  hideDelay: 1000
+})
+```
+
+### showDelay :  Sets the delay time for opening the color picker. The default is 300ms.
+
+The colorpicker opens only when the mouse is in the same place during the showDelay time.
+
+```js
+AceColorPicker.load(ace, editor, { 
+  showDelay: 1000
+})
 ```
 
 # Developments 
