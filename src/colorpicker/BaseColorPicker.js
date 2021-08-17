@@ -221,7 +221,7 @@ export default class BaseColorPicker extends UIElement {
         // set top position for color picker
         var elementScreenTop = opt.top - this.$body.scrollTop();
         var elementScreenBottom = opt.bottom - this.$body.scrollTop();
-        if (height + elementScreenBottom > window.innerHeight) {
+        if (height / 2 + elementScreenBottom > window.innerHeight) {
             elementScreenTop = elementScreenTop - height + this.$body.scrollTop();
         } else {
             elementScreenTop = elementScreenBottom + this.$body.scrollTop() + 1;
