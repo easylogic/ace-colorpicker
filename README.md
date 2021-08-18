@@ -30,13 +30,19 @@ npm install ace-colorpicker
 # How to use (for  browser) 
 
 ```
-<link rel="stylesheet" href="/ace-colorpicker/dist/ace-colorpicker.css/>
-<script src="/ace-colorpicker/dist/ace-colorpicker.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ace-colorpicker@0.0.12/addon/ace-colorpicker.css" />
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/ace-colorpicker@0.0.12/addon/ace-colorpicker.min.js" ></script>     
 ```
 
-# How to use (for require, nodejs) 
+# How to use (for es6) 
 
-after npm install 
+```js
+
+import AceColorPicker from 'ace-colorpicker'; 
+
+```
+
+
 
 ## Apply colorpicker 
 
@@ -44,8 +50,8 @@ after npm install
 
 <script type="text/javascript" src="https://ajaxorg.github.io/ace-builds/src/ace.js"></script> 
 
-<link rel="stylesheet" href="./addon/ace-colorpicker.css" />
-<script type="text/javascript" src="./addon/ace-colorpicker.js" ></script>        
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ace-colorpicker@0.0.12/addon/ace-colorpicker.css" />
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/ace-colorpicker@0.0.12/addon/ace-colorpicker.min.js" ></script>     
 
 <script type="text/javascript">
 
